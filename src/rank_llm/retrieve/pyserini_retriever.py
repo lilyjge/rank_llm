@@ -61,6 +61,7 @@ class PyseriniRetriever:
         encoder: str = None,
         onnx: bool = False,
         encoded_queries: str = None,
+        init_topics: bool = True,
     ) -> None:
         self._dataset = dataset
         self._retrieval_method = retrieval_method
@@ -80,7 +81,7 @@ class PyseriniRetriever:
             else:
                 self._init_prebuilt_topics(topics_path, index_path)
         else:
-            self._init_topics_from_dict(dataset)
+            self._init_topics_from_dict(dataset, init_topics)
 
     def _init_from_retrieval_method(
         self, dataset: str, retrieval_method: RetrievalMethod
@@ -285,31 +286,32 @@ class PyseriniRetriever:
 
         self._init_custom_index_reader(index_path, topics_path)
 
-    def _init_topics_from_dict(self, dataset: str):
+    def _init_topics_from_dict(self, dataset: str, init_topics: bool = True):
         if get_qrels is None or get_topics is None:
             raise ImportError("Please install rank-llm with `pip install .[pyserini]`.")
-        if dataset not in TOPICS:
-            if (
-                dataset.startswith("beir-v1.0.0-")
-                and dataset.endswith(".flat")
-                or dataset.endswith(".multifield")
-            ):
-                dataset = dataset.replace(".flat", "").replace(".multifield", "")
-            try:
-                self._topics = get_topics(dataset)
-                self._qrels = get_qrels(dataset)
-            except Exception as e:
-                raise ValueError(
-                    "Invalid collection name: %s" % dataset + " - " + str(e)
-                )
-        else:
-            if dataset in ["dl20", "dl21", "dl22", "dl23"]:
-                topics_key = dataset
+        if init_topics:
+            if dataset not in TOPICS:
+                if (
+                    dataset.startswith("beir-v1.0.0-")
+                    and dataset.endswith(".flat")
+                    or dataset.endswith(".multifield")
+                ):
+                    dataset = dataset.replace(".flat", "").replace(".multifield", "")
+                try:
+                    self._topics = get_topics(dataset)
+                    self._qrels = get_qrels(dataset)
+                except Exception as e:
+                    raise ValueError(
+                        "Invalid collection name: %s" % dataset + " - " + str(e)
+                    )
             else:
-                topics_key = TOPICS[dataset]
+                if dataset in ["dl20", "dl21", "dl22", "dl23"]:
+                    topics_key = dataset
+                else:
+                    topics_key = TOPICS[dataset]
 
-            self._topics = get_topics(topics_key)
-            self._qrels = get_qrels(TOPICS[dataset])
+                self._topics = get_topics(topics_key)
+                self._qrels = get_qrels(TOPICS[dataset])
 
         if LuceneIndexReader is None:
             raise ImportError("Please install rank-llm with `pip install .[pyserini]`.")

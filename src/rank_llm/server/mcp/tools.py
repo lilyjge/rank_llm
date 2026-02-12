@@ -60,9 +60,9 @@ def register_rankllm_tools(mcp: FastMCP):
         """
     )
     def rerank(
-        model_path: str,
         query_text: str,
         candidates: list[dict[str, Any]],
+        model_path: str = "castorini/rank_zephyr_7b_v1",
         query_id: str | int = "",
         batch_size: int = 32,
         top_k_rerank: int = -1,
@@ -173,7 +173,8 @@ def register_rankllm_tools(mcp: FastMCP):
             model_path: Path to the model. If `use_azure_ai`, pass your deployment name.
             query: Query text to get search results for.
             batch_size: Size of each batch for batched inference.
-            dataset: Should be one of 1- dataset name, must be in {TOPICS.keys()},  2- a list of inline documents  3- a list of inline hits; must be used when --requests_file is not specified
+            dataset: Should be one of 1- dataset name, must be in {TOPICS.keys()}, 2- a list of inline documents  3- a list of inline hits; must be used when --requests_file is not specified.
+                Default is msmarco-v2.1-doc-segmented which is good for retrieval augmented generation for LLMs.
             retrieval_mode: Mode of retrieval, either {RetrievalMode.DATASET} or {RetrievalMode.CACHED_FILE}.
             requests_file: Path to a JSONL file containing requests; must be used when --dataset is not specified.
             qrels_file: Optional. With --dataset: override default qrels. With --requests_file: qrels file for Trec eval
@@ -209,16 +210,16 @@ def register_rankllm_tools(mcp: FastMCP):
         """
     )
     def retrieve_and_rerank(
-        model_path: str,
+        model_path: str = "castorini/rank_zephyr_7b_v1_full",
         query: str = "",
         batch_size: int = 32,
-        dataset: str = "",
+        dataset: str = "msmarco-v2.1-doc-segmented",
         requests_file: str = "",
         qrels_file: str = "",
         output_jsonl_file: str = "",
         output_trec_file: str = "",
         invocations_history_file: str = "",
-        retrieval_method: RetrievalMethod = RetrievalMethod.UNSPECIFIED,
+        retrieval_method: RetrievalMethod = RetrievalMethod.BM25,
         top_k_candidates: int = 100,
         top_k_rerank: int = -1,
         max_queries: int = -1,
@@ -247,7 +248,6 @@ def register_rankllm_tools(mcp: FastMCP):
     ) -> list[Result]:
         top_k_rerank = top_k_candidates if top_k_rerank == -1 else top_k_rerank
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        retrieval_mode = RetrievalMode.DATASET if dataset else RetrievalMode.CACHED_FILE
 
         # Convert sentinel defaults to None for the underlying API
         dataset_or_none = dataset if dataset else None
@@ -264,10 +264,11 @@ def register_rankllm_tools(mcp: FastMCP):
         base_url_or_none = base_url if base_url else None
 
         if requests_file:
-            if retrieval_method != RetrievalMethod.UNSPECIFIED:
-                raise ValueError("retrieval_method must not be used with requests_file")
-        if dataset_or_none and not retrieval_method_or_none:
-            raise ValueError("retrieval_method is required when dataset is provided")
+            dataset_or_none = None
+            retrieval_method_or_none = None
+        retrieval_mode = (
+            RetrievalMode.DATASET if dataset_or_none else RetrievalMode.CACHED_FILE
+        )
 
         return retrieve_and_rerank_function(
             model_path=model_path,

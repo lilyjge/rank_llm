@@ -264,7 +264,7 @@ def retrieve(
                 raise ValueError(
                     "When providing a query, dataset must be a single dataset name."
                 )
-            pyserini = PyseriniRetriever(dataset, retrieval_method)
+            pyserini = PyseriniRetriever(dataset, retrieval_method, init_topics=False)
             requests = pyserini.retrieve_for_query_text(
                 query, k=top_k_retrieve, qid=qid
             )
